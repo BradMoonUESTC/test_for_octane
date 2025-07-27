@@ -8,35 +8,35 @@ contract VulnerableBank {
     uint256 public totalSupply;
     bool public emergencyStop;
     
-    // 漏洞1: 未设置适当的权限控制
+    // Vulnerability 1: Inadequate access control
     constructor() {
-        // owner 未设置，任何人都可以成为 owner
+        // owner not set, anyone can become owner
     }
     
-    // 存款函数
+    // Deposit function
     function deposit() public payable {
-        // 漏洞2: 整数溢出检查不足
+        // Vulnerability 2: Insufficient integer overflow protection
         balances[msg.sender] += msg.value;
-        totalSupply += msg.value; // 可能溢出
+        totalSupply += msg.value; // Possible overflow
     }
     
-    // 漏洞3: 重入攻击漏洞（原有）
+    // Vulnerability 3: Reentrancy attack vulnerability (original)
     function withdraw(uint256 amount) public {
         require(balances[msg.sender] >= amount, "Insufficient balance");
         
-        // 漏洞：在更新余额之前就发送以太币
+        // Vulnerability: Sending ether before updating balance
         (bool success, ) = msg.sender.call{value: amount}("");
         require(success, "Transfer failed");
         
-        // 余额更新在转账之后 - 这是问题所在
+        // Balance update after transfer - this is the issue
         balances[msg.sender] -= amount;
         totalSupply -= amount;
     }
     
-    // 漏洞4: 时间戳依赖漏洞
+    // Vulnerability 4: Timestamp dependency vulnerability
     function withdrawWithTimeLimit(uint256 amount) public {
         require(balances[msg.sender] >= amount, "Insufficient balance");
-        // 危险：使用 block.timestamp 作为随机性来源
+        // Danger: Using block.timestamp as source of randomness
         require(block.timestamp - lastWithdrawTime[msg.sender] > 1 hours, "Too frequent");
         require(block.timestamp % 2 == 0, "Can only withdraw on even timestamps");
         
@@ -45,38 +45,38 @@ contract VulnerableBank {
         payable(msg.sender).transfer(amount);
     }
     
-    // 漏洞5: 弱随机数生成
+    // Vulnerability 5: Weak random number generation
     function lottery() public payable {
         require(msg.value == 0.1 ether, "Must send 0.1 ether");
         
-        // 危险：可预测的随机数
+        // Danger: Predictable random number
         uint256 randomNumber = uint256(keccak256(abi.encodePacked(
             block.timestamp,
-            block.prevrandao, // 在旧版本中是 block.difficulty
+            block.prevrandao, // In older versions it was block.difficulty
             msg.sender
         ))) % 10;
         
         if (randomNumber == 7) {
-            // 中奖
+            // Winning
             payable(msg.sender).transfer(1 ether);
         }
         
         balances[msg.sender] += msg.value;
     }
     
-    // 漏洞6: 权限控制不当
+    // Vulnerability 6: Improper access control
     function setOwner(address newOwner) public {
-        // 任何人都可以设置owner
+        // Anyone can set owner
         owner = newOwner;
     }
     
-    // 漏洞7: 紧急停止功能权限不当
+    // Vulnerability 7: Improper emergency stop function permissions
     function emergencyStopToggle() public {
-        // 应该只有owner能调用，但这里没有检查
+        // Should only be callable by owner, but no check here
         emergencyStop = !emergencyStop;
     }
     
-    // 漏洞8: 未检查的外部调用
+    // Vulnerability 8: Unchecked external calls
     function transferToMultiple(address[] memory recipients, uint256[] memory amounts) public {
         require(recipients.length == amounts.length, "Arrays length mismatch");
         
@@ -84,62 +84,62 @@ contract VulnerableBank {
             require(balances[msg.sender] >= amounts[i], "Insufficient balance");
             balances[msg.sender] -= amounts[i];
             
-            // 危险：未检查调用结果，且可能导致DoS攻击
+            // Danger: Call result not checked, and may lead to DoS attack
             recipients[i].call{value: amounts[i]}("");
         }
     }
     
-    // 漏洞9: Gas limit DoS攻击
+    // Vulnerability 9: Gas limit DoS attack
     function withdrawAll(address[] memory users) public {
-        // 只有"owner"可以调用，但owner设置有问题
+        // Only "owner" can call, but owner setting is problematic
         require(msg.sender == owner, "Only owner");
         
         for (uint i = 0; i < users.length; i++) {
             if (balances[users[i]] > 0) {
                 uint256 amount = balances[users[i]];
                 balances[users[i]] = 0;
-                // 如果users数组很大，会消耗过多gas导致交易失败
+                // If users array is large, will consume too much gas causing transaction failure
                 payable(users[i]).transfer(amount);
             }
         }
     }
     
-    // 漏洞10: 委托调用漏洞
+    // Vulnerability 10: Delegate call vulnerability
     function delegateCall(address target, bytes memory data) public {
-        // 危险：任何人都可以进行委托调用
+        // Danger: Anyone can make delegate calls
         target.delegatecall(data);
     }
     
-    // 漏洞11: 自毁函数
+    // Vulnerability 11: Self-destruct function
     function destroy() public {
-        // 任何人都可以销毁合约
+        // Anyone can destroy the contract
         selfdestruct(payable(msg.sender));
     }
     
-    // 漏洞12: 整数下溢
+    // Vulnerability 12: Integer underflow
     function forceWithdraw(address user, uint256 amount) public {
-        // 没有足够的检查，可能导致下溢
+        // Insufficient checks, may lead to underflow
         balances[user] -= amount;
         payable(user).transfer(amount);
     }
     
-    // 查询余额
+    // Query balance
     function getBalance(address user) public view returns (uint256) {
         return balances[user];
     }
     
-    // 查询合约总余额
+    // Query contract total balance
     function getContractBalance() public view returns (uint256) {
         return address(this).balance;
     }
     
-    // 漏洞13: 接收函数没有限制
+    // Vulnerability 13: Receive function has no restrictions
     receive() external payable {
-        // 任何人都可以向合约发送以太币，没有记录
+        // Anyone can send ether to contract, no record
     }
     
     fallback() external payable {
-        // 回退函数也没有限制
+        // Fallback function also has no restrictions
     }
 }
 
